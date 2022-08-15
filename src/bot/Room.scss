@@ -1,0 +1,7 @@
+.room {
+  flex: 1;
+
+  background-image: repeating-linear-gradient(90deg, #ddd , #ddd 2px, transparent 2px, transparent 50px), repeating-linear-gradient(0deg, #ddd , #ddd 2px, transparent 2px, transparent 50px );
+  background-size: 50px 50px;
+  touch-action: none;
+}
