@@ -1,4 +1,6 @@
-# Getting Started with Create React App
+# Coding dojo
+
+First challenge: Help the robot!
 
 This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
 
