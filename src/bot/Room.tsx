@@ -1,11 +1,15 @@
 /* eslint-disable react/style-prop-object */
-import { Point, SVG } from "@svgdotjs/svg.js";
-import React, { RefObject } from "react";
+import { Pattern, Point, Svg, SVG } from "@svgdotjs/svg.js";
+import React, { RefObject, useCallback, useEffect, useMemo, useRef } from "react";
 import * as ReactDOMServer from "react-dom/server";
-import { IRobot, IRoom } from "./bot";
-import { IRobotParent, Robot } from "./Robot";
+import { Direction, IRobot, IRobotState, IRoom } from "./bot";
+import Robot, { IRobotParent, IRobotControl } from "./Robot";
 
 import './Room.scss';
+import { forwardRef } from 'react';
+import { useImperativeHandle } from 'react';
+import { turnLeftFrom, turnRightFrom } from './utils';
+import { moveFrom } from './utils';
 
 const BLOBS = [
   <g> <path d="M0 .5A.5.5 0 0 1 .5 0h15a.5.5 0 0 1 .5.5v3a.5.5 0 0 1-.5.5H14v2h1.5a.5.5 0 0 1 .5.5v3a.5.5 0 0 1-.5.5H14v2h1.5a.5.5 0 0 1 .5.5v3a.5.5 0 0 1-.5.5H.5a.5.5 0 0 1-.5-.5v-3a.5.5 0 0 1 .5-.5H2v-2H.5a.5.5 0 0 1-.5-.5v-3A.5.5 0 0 1 .5 6H2V4H.5a.5.5 0 0 1-.5-.5v-3zM3 4v2h4.5V4H3zm5.5 0v2H13V4H8.5zM3 10v2h4.5v-2H3zm5.5 0v2H13v-2H8.5zM1 1v2h3.5V1H1zm4.5 0v2h5V1h-5zm6 0v2H15V1h-3.5zM1 7v2h3.5V7H1zm4.5 0v2h5V7h-5zm6 0v2H15V7h-3.5zM1 13v2h3.5v-2H1zm4.5 0v2h5v-2h-5zm6 0v2H15v-2h-3.5z" fill="blue"></path> </g>,
@@ -30,118 +34,192 @@ const GLOWFILTER = ReactDOMServer.renderToStaticMarkup(
     <feGaussianBlur in="thicken" stdDeviation="5" result="blurred" />
   </filter>);
 
-export class Room extends React.Component implements IRobotParent, IRoom {
-  gridSize = 50;
-  colCount = 20;
-  rowCount = 16;
+const Room = forwardRef((props: any, ref) => {
+  const width = 2000;
+  const height = 1000;
+  const gridSize = 50;
+  const colCount = width / gridSize;
+  const rowCount = height / gridSize;
+  const iconPercentage = 0.7;
 
-  svg = SVG().viewbox(0, 0, 1000, 800);
-  obstacles: { [id: string]: boolean } = {};
-  exitPoint = new Point();
-  robot: Robot;
+  const obstacles: { [id: string]: boolean } = {};
+  const exitPoint = new Point();
 
-  private roomWidth = 1;
-  private roomHeight = 1;
+  const svgRef = useRef<SVGSVGElement>(null);
+  const robot = useRef<IRobotControl>(null);
 
-  private svgWrapperRefElement: RefObject<HTMLDivElement>;
+  // this is the state which the room will manage
+  // it is synced with the internal robot state once on reset only
+  // when executing function, it is updated immediately
+  // while the internal robot state is updated after animation
+  const robotState = {
+    x: 0,
+    y: 0,
+    direction: 'N'
+  };
 
-  private added = false;
-
-  constructor(props: any) {
-    super(props);
-    this.svgWrapperRefElement = React.createRef();
-    this.robot = new Robot(this);
-  }
-
-  componentDidMount() {
-    if (this.svgWrapperRefElement.current && !this.added) {
-      this.svg.addTo(this.svgWrapperRefElement.current);
-      this.svg.defs().node.innerHTML = RADIALGRADIENTDEF + GLOWFILTER;
-      this.draw();
-
-      // this is to prevent double call in development mode
-      this.added = true;
+  const reset = () => {
+    if (!svgRef.current) {
+      return;
     }
+
+    const svg = SVG(svgRef.current)
+    // clear the obstacles
+    Object.keys(obstacles).forEach(key => delete obstacles[key]);
+    svg.clear();
+    draw(svg)
   }
 
-  reset() {
-    this.robot.reset();
-    this.svg.clear();
-    this.draw();
-  }
+  const draw = (svg: Svg) => {
+    initialDraw(svg);
+    drawExitPoint(svg);
+    generateRandomObstacles(svg);
+    drawRobot(svg);
+  };
 
-  render() {
-    return (
-      <div className="room" ref={this.svgWrapperRefElement}>
-      </div>
-    );
-  }
-
-  private draw() {
-    console.log("draw");
-
-    this.initialDraw();
-    this.drawExitPoint();
-    this.generateRandomObstacles();
-    this.drawRobot();
-  }
-
-  private initialDraw() {
-    const pattern = this.svg.pattern(this.gridSize * 2, this.gridSize * 2, pattern => {
-      pattern.rect(this.gridSize * 2, this.gridSize * 2).fill('#eee');
-      pattern.rect(this.gridSize, this.gridSize).fill('#ddd');
-      pattern.rect(this.gridSize, this.gridSize).move(this.gridSize, this.gridSize).fill('#ddd');
+  const initialDraw = (svg: Svg) => {
+    //console.log('initial draw', svg);
+    svg.viewbox(0, 0, width, height);
+    svg.defs().node.innerHTML = RADIALGRADIENTDEF + GLOWFILTER;
+    const pattern = svg.pattern(gridSize * 2, gridSize * 2, (pat: Pattern) => {
+      pat.rect(gridSize * 2, gridSize * 2).fill('#eee');
+      pat.rect(gridSize, gridSize).fill('#ddd');
+      pat.rect(gridSize, gridSize).move(gridSize, gridSize).fill('#ddd');
     });
 
-    const clientRect = this.svg.node.getBoundingClientRect();
-    this.roomWidth = clientRect.width;
-    this.roomHeight = clientRect.height;
-    this.svg.rect(this.roomWidth, this.roomHeight).fill(pattern);
+    svg.rect(width, height).fill(pattern);
   }
 
-  private drawExitPoint() {
-    const minX = this.colCount - 5;
-    const minY = this.rowCount - 5;
-    this.exitPoint.x = Math.floor(Math.random() * (this.colCount - minX) + minX);
-    this.exitPoint.y = Math.floor(Math.random() * (this.rowCount - minY) + minY);
-    SVG()
-      .size(this.gridSize - 20, this.gridSize - 20)
+  const drawExitPoint = (svg: Svg) => {
+    const minX = colCount - 5;
+    const minY = rowCount - 5;
+    const iconSize = gridSize * iconPercentage;
+    const deltaPos = gridSize * (0.5 - iconPercentage / 2);
+    exitPoint.x = Math.floor(Math.random() * (colCount - minX) + minX);
+    exitPoint.y = Math.floor(Math.random() * (rowCount - minY) + minY);
+    svg.nested()
+      .svg(EXITICONSTATIC) // add a child svg
+      .size(iconSize, iconSize)
       .viewbox('0 0 16 16')
-      .move(this.exitPoint.x * this.gridSize + 10, this.exitPoint.y * this.gridSize + 10)
-      .svg(EXITICONSTATIC)
-      .addTo(this.svg);
+      .move(exitPoint.x * gridSize + deltaPos, exitPoint.y * gridSize + deltaPos)
   }
 
-  private generateRandomObstacles() {
-    const max = this.colCount * this.rowCount * 0.2;
-    const min = this.colCount * this.rowCount * 0.05;
+  const generateRandomObstacles = (svg: Svg) => {
+    const max = colCount * rowCount * 0.2;
+    const min = colCount * rowCount * 0.05;
     const count = Math.floor(Math.random() * (max - min) + min);
     let i = 0;
-    this.obstacles = {};
+    let tryCount = 0;
     while (i < count) {
-      const randX = Math.floor(Math.random() * this.colCount);
-      const randY = Math.floor(Math.random() * this.rowCount);
+      const randX = Math.floor(Math.random() * colCount);
+      const randY = Math.floor(Math.random() * rowCount);
 
-      if (!this.obstacles[`${randX}_${randY}`] && randX !== this.exitPoint.x && randY !== this.exitPoint.y) {
-        this.obstacles[`${randX}_${randY}`] = true;
+      if (!obstacles[`${randX}_${randY}`] && randX !== exitPoint.x && randY !== exitPoint.y) {
+        obstacles[`${randX}_${randY}`] = true;
         i++;
+      }
+
+      tryCount++;
+      if (tryCount > 100 * count) {
+        throw 'Not enough spaces for all the obstacles';
       }
     }
 
-    this.drawObstacles();
+    drawObstacles(svg);
   }
 
-  private drawRobot() {
-    this.robot.placeRobotRandomly();
-  }
-
-  private drawObstacles() {
-    for (let key in this.obstacles) {
+  const drawObstacles = (svg: Svg) => {
+    const iconSize = gridSize * iconPercentage;
+    const deltaPos = gridSize * (0.5 - iconPercentage / 2);
+    for (let key in obstacles) {
       const splits = key.split('_');
-      const x = parseInt(splits[0]) * this.gridSize;
-      const y = parseInt(splits[1]) * this.gridSize;
+      const x = parseInt(splits[0]) * gridSize;
+      const y = parseInt(splits[1]) * gridSize;
       const randI = Math.floor(Math.random() * BLOBSTATIC.length);
-      SVG().size(this.gridSize - 20, this.gridSize - 20).viewbox('0 0 16 16').move(x + 10, y + 10).svg(BLOBSTATIC[randI]).addTo(this.svg);
+      svg.nested()
+        .svg(BLOBSTATIC[randI])
+        .size(iconSize, iconSize)
+        .viewbox('0 0 16 16').move(x + deltaPos, y + deltaPos);
     }
   }
-}
+
+  const drawRobot = (svg: Svg) => {
+    if (!robot.current) {
+      return;
+    }
+    robot.current.initialDraw(svg);
+    const state = robot.current.getInternalState();
+    robotState.x = state.x;
+    robotState.y = state.y;
+    robotState.direction = state.direction;
+  }
+
+  const addMark = (cx: number, cy: number) => {
+    if (!svgRef.current) {
+      return;
+    }
+    const svg = SVG(svgRef.current);
+    svg.circle(gridSize / 5).cx(cx).cy(cy).attr({
+      fill: 'url(#radial)',
+      filter: 'url(#sofGlow)'
+    });
+  };
+
+  const isMovable = (x: number, y:number) => {
+    if (x < 0 || x >= colCount || y < 0 || y >= rowCount) {
+      return false;
+    }
+
+    return !obstacles[`${x}_${y}`];
+  };
+
+  const virtualBot: IRobot = {
+    turnLeft: () => {
+      robotState.direction = turnLeftFrom(robotState.direction as Direction);
+      robot.current?.turnLeft();
+    },
+    turnRight: () => {
+      robotState.direction = turnRightFrom(robotState.direction as Direction);
+      robot.current?.turnRight();
+    },
+    move: () => {
+      const [nextX, nextY] = moveFrom(robotState.x, robotState.y, robotState.direction as Direction);
+      if (isMovable(nextX, nextY)) {
+        robot.current?.move();
+        robotState.x = nextX;
+        robotState.y = nextY;
+        return true;
+      }
+      return false;
+    },
+    state: robotState as IRobotState
+  };
+
+  const childProps = {
+    gridSize, colCount, rowCount, obstacles, exitPoint, addMark, isMovable
+  };
+
+  useEffect(() => {
+    if (svgRef.current) {
+      reset();
+    }
+  });
+
+  useImperativeHandle(ref, () =>({
+    robot: virtualBot,
+    rowCount,
+    colCount,
+    exitPoint,
+    reset
+  }));
+
+  return (
+    <div className="room">
+      <svg xmlns="http://www.w3.org/2000/svg" ref={svgRef}>
+        <Robot {...childProps} ref={robot}/>
+      </svg>
+    </div>
+  );
+});
+
+export default Room;

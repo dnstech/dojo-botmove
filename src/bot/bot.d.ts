@@ -2,11 +2,14 @@ import { Point } from "@svgdotjs/svg.js";
 
 export type Direction = 'N' | 'E' | 'S' | 'W';
 
-export interface IRobot {
-  animationSpeed: number;
+export interface IRobotState {
   readonly direction: Direction;
   readonly x: number;
   readonly y: number;
+}
+
+export interface IRobot {
+  state: IRobotState;
   move(): boolean;
   turnLeft();
   turnRight();

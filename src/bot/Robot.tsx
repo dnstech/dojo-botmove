@@ -1,14 +1,25 @@
-import { Point, Runner, SVG, Svg, Timeline } from "@svgdotjs/svg.js";
+import { Point, SVG, Svg, Timeline } from "@svgdotjs/svg.js";
+import { ForwardedRef, forwardRef, RefObject, useImperativeHandle, useRef, useState } from "react";
 import * as ReactDOMServer from "react-dom/server";
-import { Direction, IRobot } from './bot.d';
+import { Direction, IRobotState } from './bot.d';
+import { moveFrom, turnLeftFrom, turnRightFrom } from './utils';
 
 export interface IRobotParent {
   gridSize: number;
   colCount: number;
   rowCount: number;
-  svg: Svg;
   obstacles: { [id: string] : boolean };
   exitPoint: Point;
+  addMark(cx: number, cy: number): void;
+  isMovable(x: number, y: number): boolean;
+}
+
+export interface IRobotControl {
+  initialDraw(room: Svg): void;
+  move(): boolean;
+  turnLeft(): void;
+  turnRight(): void;
+  getInternalState(): IRobotState;
 }
 
 const robotSvg =
@@ -23,210 +34,174 @@ const robotSvg =
     <circle cx="172" cy="108" r="10"/>
   </g>;
 
-export class Robot implements IRobot {
-  animationSpeed = 500;
-  direction: Direction = 'N';
+const Robot = forwardRef((props: IRobotParent, stateRef: ForwardedRef<IRobotControl>) => {
+  const animationDelay = 200;
+  let direction: Direction = 'N';
+  let x: number = 0;
+  let y: number = 0;
+  const svgRef: RefObject<SVGSVGElement> = useRef(null);
 
-  x = 0;
-  y = 0;
+  useImperativeHandle(stateRef, () => ({
+    turnLeft,
+    turnRight,
+    move,
+    initialDraw,
+    getInternalState
+  }) as IRobotControl);
 
-  private actionQueue: string[] = [];
-  private timeline = new Timeline();
-  private bot: Svg;
+  const actionQueue: string[] = [];
+  const timeline = new Timeline();
 
-  constructor(public parent: IRobotParent) {
-    this.bot = SVG().size(this.parent.gridSize, this.parent.gridSize).viewbox('0 0 256 256');
+  const getInternalState = () => ({
+    x, y, direction
+  });
+
+  const turnLeft = () => {
+    updateBot(turnLeftFrom(direction), x, y);
   }
 
-  turnLeft() {
-    let nextDirection: Direction;
-    switch (this.direction) {
-      case 'N':
-        nextDirection = 'W';
-        break;
-      case 'E':
-        nextDirection = 'N';
-        break;
-      case 'W':
-        nextDirection = 'S';
-        break;
-      case 'S':
-        nextDirection = 'E';
-        break;
-    }
-    this.updateBot(nextDirection);
+  const turnRight = () => {
+    updateBot(turnRightFrom(direction), x, y);
   }
 
-  turnRight() {
-    let nextDirection: Direction;
-    switch (this.direction) {
-      case 'N':
-        nextDirection = 'E';
-        break;
-      case 'E':
-        nextDirection = 'S';
-        break;
-      case 'W':
-        nextDirection = 'N';
-        break;
-      case 'S':
-        nextDirection = 'W';
-        break;
-    }
-    this.updateBot(nextDirection);
-  }
-
-  move() {
-    let x = this.x;
-    let y = this.y;
-    switch (this.direction) {
-      case 'N':
-        y--;
-        break;
-      case 'E':
-        x++;
-        break;
-      case 'W':
-        x--;
-        break;
-      case 'S':
-        y++;
-        break;
-    }
-
-    if (this.isMovable(x, y)) {
-      this.addVisitedMark();
-      this.updateBot(this.direction, x, y);
+  const move = () => {
+    const [nextX, nextY] = moveFrom(x, y, direction);
+    if (props.isMovable(nextX, nextY)) {
+      addVisitedMark();
+      updateBot(direction, nextX, nextY);
       return true;
     }
 
     return false;
   }
 
-  placeRobotRandomly() {
-    const staticElem = ReactDOMServer.renderToStaticMarkup(robotSvg);
-    this.bot.svg(staticElem);
-    this.bot.addTo(this.parent.svg);
+  const initialDraw = (svg: Svg) => {
+    if (!svgRef.current) {
+      return;
+    }
 
-    // set the timeline to coordinate animation
-    this.parent.svg.timeline(this.timeline);
-    this.bot.timeline(this.timeline);
-    this.bot.first().timeline(this.timeline);
+    const bot = SVG(svgRef.current);
+    bot.clear();
+    timeline.finish();
+    timeline.seek(0);
+
+    const staticElem = ReactDOMServer.renderToStaticMarkup(robotSvg);
+    bot
+      .size(props.gridSize, props.gridSize).viewbox('0 0 256 256')
+      .svg(staticElem);
+
+      // set the timeline to coordinate animation
+    bot.timeline(timeline)
+      // select the group
+      .first()
+      .timeline(timeline);
+
+    bot.addTo(svg);
+    svg.timeline(timeline);
 
     // random location
-    const maxX = this.parent.colCount / 2;
-    const maxY = this.parent.rowCount / 2;
-    let x:number, y:number;
+    const maxX = props.colCount / 2;
+    const maxY = props.rowCount / 2;
+    let initialX:number, initialY:number;
     do {
-      x = Math.floor(Math.random() * maxX);
-      y = Math.floor(Math.random() * maxY);
-    } while (!this.isMovable(x, y));
+      initialX = Math.floor(Math.random() * maxX);
+      initialY = Math.floor(Math.random() * maxY);
+    } while (!props.isMovable(initialX, initialY));
 
     // random location
     const rand = Math.random();
-    const direction = rand < 0.25 ? 'N' : rand < 0.5 ? 'E' : rand < 0.75 ? 'S' : 'W';
+    const initialDirection = rand < 0.25 ? 'N' : rand < 0.5 ? 'E' : rand < 0.75 ? 'S' : 'W';
 
-    this.updateBot(direction, x, y, this.animationSpeed, true);
+    updateBot(initialDirection, initialX, initialY, true);
 
-    //this.testRun();
-    //this.solve();
+    //testRun();
   }
 
-  reset() {
-    this.timeline.finish();
-    this.bot.clear();
-    this.timeline = new Timeline();
+  const updateBot = (nextDirection: Direction, nextX: number, nextY: number, force = false) => {
+    actionQueue.push(`${nextDirection},${nextX},${nextY}`);
+    startAnimation(force);
   }
 
-  private updateBot(direction = this.direction, nextX = this.x, nextY = this.y, nextDelay = this.animationSpeed, force = false) {
-    this.actionQueue.push(`${direction},${nextX},${nextY},${nextDelay}`);
-    this.startAnimation(force);
-  }
+  const startAnimation = (force = false) => {
+    if (!svgRef.current) {
+      return;
+    }
 
-  private startAnimation(force = false) {
-    while (this.actionQueue.length) {
-      const action = this.actionQueue.shift();
-      console.log(action);
+    const bot = SVG(svgRef.current);
+
+    while (actionQueue.length) {
+      const action = actionQueue.shift();
+      //console.log(action);
       const splits = (action as string).split(',');
-      const direction = splits[0] as Direction;
-      const x = parseInt(splits[1]);
-      const y = parseInt(splits[2]);
-      const delay = parseInt(splits[3]);
+      const nextDirection = splits[0] as Direction;
+      const nextX = parseInt(splits[1]);
+      const nextY = parseInt(splits[2]);
 
-      this.animationSpeed = delay;
-
-      if (force || this.x !== x || this.y !== y) {
+      if (force || nextX !== x || nextY !== y) {
         // move
-        this.x = x;
-        this.y = y;
-        this.bot.animate(delay, 0, 'relative').move(x * this.parent.gridSize, y * this.parent.gridSize);
+        x = nextX;
+        y = nextY;
+        bot.animate(animationDelay, 0, 'relative').move(x * props.gridSize, y * props.gridSize);
       }
 
-      if (force || this.direction !== direction) {
+      if (force || nextDirection !== direction) {
         // rotate
-        this.direction = direction;
-        switch (this.direction) {
+        direction = nextDirection;
+        switch (nextDirection) {
           case 'N':
-            this.bot.first().animate(delay, 0, 'relative').transform({
+            bot.first().animate(animationDelay, 0, 'relative').transform({
               rotate: 0
             });
             break;
           case 'E':
-            this.bot.first().animate(delay, 0, 'relative').transform({
+            bot.first().animate(animationDelay, 0, 'relative').transform({
               rotate: 90
             });
             break;
           case 'W':
-            this.bot.first().animate(delay, 0, 'relative').transform({
+            bot.first().animate(animationDelay, 0, 'relative').transform({
               rotate: 270
             });
             break;
           case 'S':
-            this.bot.first().animate(delay, 0, 'relative').transform({
+            bot.first().animate(animationDelay, 0, 'relative').transform({
               rotate: 180
             });
             break;
         }
       }
     }
-  }
+  };
 
-  private isMovable(x: number, y: number): boolean {
-    if (x < 0 || x >= this.parent.colCount || y < 0 || y >= this.parent.rowCount) {
-      return false;
-    }
+  const addVisitedMark = () => {
+    const cx = x * props.gridSize + props.gridSize / 2;
+    const cy = y * props.gridSize + props.gridSize / 2;
+    props.addMark(cx, cy);
+  };
 
-    return !this.parent.obstacles[`${x}_${y}`];
-  }
-
-  private addVisitedMark() {
-    const cx = this.x * this.parent.gridSize + this.parent.gridSize / 2;
-    const cy = this.y * this.parent.gridSize + this.parent.gridSize / 2;
-    this.parent.svg.circle(10).cx(cx).cy(cy).attr({
-      fill: 'url(#radial)',
-      filter: 'url(#sofGlow)'
-    });
-  }
-
-  private intervalCount = 30;
-  private randInterval: NodeJS.Timer | undefined;
-  private testRun() {
+  let intervalCount = 30;
+  let randInterval: NodeJS.Timer | undefined;
+  const testRun = () => {
     const randMove = () => {
-      this.intervalCount--;
-      if (this.intervalCount < 0) {
-        clearInterval(this.randInterval);
+      intervalCount--;
+      if (intervalCount < 0) {
+        clearInterval(randInterval);
         return;
       }
 
       if (Math.random() > 0.9) {
-        this.turnLeft();
+        turnLeft();
       } else if (Math.random() > 0.8) {
-        this.turnRight();
+        turnRight();
       } else {
-        this.move();
+        move();
       }
     };
 
-    this.randInterval = setInterval(randMove, this.animationSpeed * 2);
+    randInterval = setInterval(randMove, animationDelay * 2);
   }
-}
+
+  return <svg xmlns="http://www.w3.org/2000/svg" ref={svgRef}/>;
+});
+
+export default Robot;
