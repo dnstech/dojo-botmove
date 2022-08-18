@@ -1,9 +1,9 @@
 /* eslint-disable react/style-prop-object */
 import { Pattern, Point, Svg, SVG } from "@svgdotjs/svg.js";
-import React, { RefObject, useCallback, useEffect, useMemo, useRef } from "react";
+import React, { ForwardedRef, useEffect, useRef } from "react";
 import * as ReactDOMServer from "react-dom/server";
-import { Direction, IRobot, IRobotState, IRoom } from "./bot";
-import Robot, { IRobotParent, IRobotControl } from "./Robot";
+import { Direction, IRobot, IRobotState, IRoom, IRoomProps } from "./bot";
+import Robot, { IRobotControl } from "./Robot";
 
 import './Room.scss';
 import { forwardRef } from 'react';
@@ -34,25 +34,28 @@ const GLOWFILTER = ReactDOMServer.renderToStaticMarkup(
     <feGaussianBlur in="thicken" stdDeviation="5" result="blurred" />
   </filter>);
 
-const Room = forwardRef((props: any, ref) => {
-  const width = 2000;
-  const height = 1000;
-  const gridSize = 50;
-  const colCount = width / gridSize;
-  const rowCount = height / gridSize;
+const Room = forwardRef((props: IRoomProps, ref: ForwardedRef<IRoom>) => {
+  const width = props.width;
+  const height = props.height;
+  const gridSize = props.gridSize;
+  const colCount = Math.floor(width / gridSize);
+  const rowCount = Math.floor(height / gridSize);
   const iconPercentage = 0.7;
+  const obstacleFillMax = 0.3;
+  const obstacleFillMin = 0.1;
 
   const obstacles: { [id: string]: boolean } = {};
   const exitPoint = new Point();
 
   const svgRef = useRef<SVGSVGElement>(null);
   const robot = useRef<IRobotControl>(null);
+  const lastRecording: string[] = [];
 
   // this is the state which the room will manage
   // it is synced with the internal robot state once on reset only
   // when executing function, it is updated immediately
   // while the internal robot state is updated after animation
-  const robotState = {
+  const simulationState = {
     x: 0,
     y: 0,
     direction: 'N'
@@ -66,6 +69,8 @@ const Room = forwardRef((props: any, ref) => {
     const svg = SVG(svgRef.current)
     // clear the obstacles
     Object.keys(obstacles).forEach(key => delete obstacles[key]);
+    // clear the recording
+    lastRecording.splice(0, lastRecording.length);
     svg.clear();
     draw(svg)
   }
@@ -75,6 +80,7 @@ const Room = forwardRef((props: any, ref) => {
     drawExitPoint(svg);
     generateRandomObstacles(svg);
     drawRobot(svg);
+    console.log('---initial state', obstacles, simulationBot.state.x, simulationBot.state.y, simulationBot.state.direction);
   };
 
   const initialDraw = (svg: Svg) => {
@@ -105,8 +111,8 @@ const Room = forwardRef((props: any, ref) => {
   }
 
   const generateRandomObstacles = (svg: Svg) => {
-    const max = colCount * rowCount * 0.2;
-    const min = colCount * rowCount * 0.05;
+    const max = colCount * rowCount * obstacleFillMax;
+    const min = colCount * rowCount * obstacleFillMin;
     const count = Math.floor(Math.random() * (max - min) + min);
     let i = 0;
     let tryCount = 0;
@@ -149,9 +155,11 @@ const Room = forwardRef((props: any, ref) => {
     }
     robot.current.initialDraw(svg);
     const state = robot.current.getInternalState();
-    robotState.x = state.x;
-    robotState.y = state.y;
-    robotState.direction = state.direction;
+    simulationState.x = state.x;
+    simulationState.y = state.y;
+    simulationState.direction = state.direction;
+
+    console.log('simulation state', simulationState);
   }
 
   const addMark = (cx: number, cy: number) => {
@@ -173,26 +181,41 @@ const Room = forwardRef((props: any, ref) => {
     return !obstacles[`${x}_${y}`];
   };
 
-  const virtualBot: IRobot = {
-    turnLeft: () => {
-      robotState.direction = turnLeftFrom(robotState.direction as Direction);
-      robot.current?.turnLeft();
+  const replay = () => {
+    robot.current?.processMoves(lastRecording);
+  }
+
+  // this is a simulation without animation :(
+  // can't think of a better way for now :(
+  const simulationBot: IRobot = {
+    turnLeft: (animate: boolean = false) => {
+      simulationState.direction = turnLeftFrom(simulationState.direction as Direction);
+      lastRecording.push('L');
+      if (animate) {
+        robot.current?.turnLeft();
+      }
     },
-    turnRight: () => {
-      robotState.direction = turnRightFrom(robotState.direction as Direction);
-      robot.current?.turnRight();
+    turnRight: (animate: boolean = false) => {
+      simulationState.direction = turnRightFrom(simulationState.direction as Direction);
+      lastRecording.push('R');
+      if (animate) {
+        robot.current?.turnRight();
+      }
     },
-    move: () => {
-      const [nextX, nextY] = moveFrom(robotState.x, robotState.y, robotState.direction as Direction);
+    move: (animate: boolean = false) => {
+      const [nextX, nextY] = moveFrom(simulationState.x, simulationState.y, simulationState.direction as Direction);
       if (isMovable(nextX, nextY)) {
-        robot.current?.move();
-        robotState.x = nextX;
-        robotState.y = nextY;
+        lastRecording.push('M');
+        if (animate) {
+          robot.current?.move();
+        }
+        simulationState.x = nextX;
+        simulationState.y = nextY;
         return true;
       }
       return false;
     },
-    state: robotState as IRobotState
+    state: simulationState as IRobotState
   };
 
   const childProps = {
@@ -206,11 +229,12 @@ const Room = forwardRef((props: any, ref) => {
   });
 
   useImperativeHandle(ref, () =>({
-    robot: virtualBot,
+    robot: simulationBot,
     rowCount,
     colCount,
     exitPoint,
-    reset
+    reset,
+    replay
   }));
 
   return (

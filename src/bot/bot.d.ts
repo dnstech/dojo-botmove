@@ -10,9 +10,9 @@ export interface IRobotState {
 
 export interface IRobot {
   state: IRobotState;
-  move(): boolean;
-  turnLeft();
-  turnRight();
+  move(animate?: boolean): boolean;
+  turnLeft(animate?: boolean);
+  turnRight(animate?: boolean);
 }
 
 export interface IRoom {
@@ -22,4 +22,11 @@ export interface IRoom {
   robot: IRobot;
 
   reset();
+  replay();
+}
+
+export interface IRoomProps {
+  width: number;
+  height: number;
+  gridSize: number;
 }

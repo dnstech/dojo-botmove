@@ -1,5 +1,5 @@
 import { Point, SVG, Svg, Timeline } from "@svgdotjs/svg.js";
-import { ForwardedRef, forwardRef, RefObject, useImperativeHandle, useRef, useState } from "react";
+import { ForwardedRef, forwardRef, RefObject, useImperativeHandle, useRef } from "react";
 import * as ReactDOMServer from "react-dom/server";
 import { Direction, IRobotState } from './bot.d';
 import { moveFrom, turnLeftFrom, turnRightFrom } from './utils';
@@ -16,10 +16,11 @@ export interface IRobotParent {
 
 export interface IRobotControl {
   initialDraw(room: Svg): void;
-  move(): boolean;
+  move(): void;
   turnLeft(): void;
   turnRight(): void;
   getInternalState(): IRobotState;
+  processMoves(moves: string[]): void;
 }
 
 const robotSvg =
@@ -36,20 +37,13 @@ const robotSvg =
 
 const Robot = forwardRef((props: IRobotParent, stateRef: ForwardedRef<IRobotControl>) => {
   const animationDelay = 200;
+  let currentTimeline = 0;
   let direction: Direction = 'N';
   let x: number = 0;
   let y: number = 0;
   const svgRef: RefObject<SVGSVGElement> = useRef(null);
 
-  useImperativeHandle(stateRef, () => ({
-    turnLeft,
-    turnRight,
-    move,
-    initialDraw,
-    getInternalState
-  }) as IRobotControl);
-
-  const actionQueue: string[] = [];
+  const stateQueue: string[] = [];
   const timeline = new Timeline();
 
   const getInternalState = () => ({
@@ -84,6 +78,8 @@ const Robot = forwardRef((props: IRobotParent, stateRef: ForwardedRef<IRobotCont
     bot.clear();
     timeline.finish();
     timeline.seek(0);
+    currentTimeline = 0;
+    stateQueue.splice(0, stateQueue.length);
 
     const staticElem = ReactDOMServer.renderToStaticMarkup(robotSvg);
     bot
@@ -117,58 +113,66 @@ const Robot = forwardRef((props: IRobotParent, stateRef: ForwardedRef<IRobotCont
     //testRun();
   }
 
-  const updateBot = (nextDirection: Direction, nextX: number, nextY: number, force = false) => {
-    actionQueue.push(`${nextDirection},${nextX},${nextY}`);
-    startAnimation(force);
+  const updateBot = (nextDirection: Direction, nextX: number, nextY: number, initalDraw = false) => {
+    stateQueue.push(`${nextDirection},${nextX},${nextY}`);
+    startAnimation(initalDraw);
   }
 
-  const startAnimation = (force = false) => {
+  const startAnimation = (initalDraw = false) => {
     if (!svgRef.current) {
       return;
     }
 
     const bot = SVG(svgRef.current);
 
-    while (actionQueue.length) {
-      const action = actionQueue.shift();
+    // console.log(stateQueue);
+    // console.log(currentTimeline);
+
+    while (stateQueue.length) {
+      const action = stateQueue.shift();
       //console.log(action);
       const splits = (action as string).split(',');
       const nextDirection = splits[0] as Direction;
       const nextX = parseInt(splits[1]);
       const nextY = parseInt(splits[2]);
 
-      if (force || nextX !== x || nextY !== y) {
+      if (nextX !== x || nextY !== y) {
         // move
+        if (!initalDraw) {
+          addVisitedMark();
+        }
         x = nextX;
         y = nextY;
-        bot.animate(animationDelay, 0, 'relative').move(x * props.gridSize, y * props.gridSize);
+        bot.animate(animationDelay, currentTimeline, 'absolute').move(x * props.gridSize, y * props.gridSize);
+        currentTimeline += animationDelay;
       }
 
-      if (force || nextDirection !== direction) {
+      if (nextDirection !== direction) {
         // rotate
         direction = nextDirection;
         switch (nextDirection) {
           case 'N':
-            bot.first().animate(animationDelay, 0, 'relative').transform({
+            bot.first().animate(animationDelay, currentTimeline, 'absolute').transform({
               rotate: 0
             });
             break;
           case 'E':
-            bot.first().animate(animationDelay, 0, 'relative').transform({
+            bot.first().animate(animationDelay, currentTimeline, 'absolute').transform({
               rotate: 90
             });
             break;
           case 'W':
-            bot.first().animate(animationDelay, 0, 'relative').transform({
+            bot.first().animate(animationDelay, currentTimeline, 'absolute').transform({
               rotate: 270
             });
             break;
           case 'S':
-            bot.first().animate(animationDelay, 0, 'relative').transform({
+            bot.first().animate(animationDelay, currentTimeline, 'absolute').transform({
               rotate: 180
             });
             break;
         }
+        currentTimeline += animationDelay;
       }
     }
   };
@@ -177,6 +181,36 @@ const Robot = forwardRef((props: IRobotParent, stateRef: ForwardedRef<IRobotCont
     const cx = x * props.gridSize + props.gridSize / 2;
     const cy = y * props.gridSize + props.gridSize / 2;
     props.addMark(cx, cy);
+  };
+
+  const processMoves = (moves: string[]) => {
+    const state = {
+      x: x,
+      y: y,
+      direction: direction
+    };
+
+    // console.log('process path', state);
+
+    stateQueue.splice(0, stateQueue.length);
+    for (let i = 0; i < moves.length; i++) {
+      switch (moves[i]) {
+        case 'L':
+          state.direction = turnLeftFrom(state.direction);
+          break;
+        case 'R':
+          state.direction = turnRightFrom(state.direction);
+          break;
+        case 'M':
+          const [nextX, nextY] = moveFrom(state.x, state.y, state.direction);
+          state.x = nextX;
+          state.y = nextY;
+          break;
+      }
+      stateQueue.push(`${state.direction},${state.x},${state.y}`);
+    }
+
+    startAnimation();
   };
 
   let intervalCount = 30;
@@ -200,6 +234,16 @@ const Robot = forwardRef((props: IRobotParent, stateRef: ForwardedRef<IRobotCont
 
     randInterval = setInterval(randMove, animationDelay * 2);
   }
+
+  useImperativeHandle(stateRef, () => ({
+    turnLeft,
+    turnRight,
+    move,
+    initialDraw,
+    getInternalState,
+    processMoves
+  }));
+
 
   return <svg xmlns="http://www.w3.org/2000/svg" ref={svgRef}/>;
 });
