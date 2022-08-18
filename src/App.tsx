@@ -42,7 +42,7 @@ function App() {
           <button onClick={move}>Move</button>
           <button onClick={turnLeft}>Turn left</button>
           <button onClick={turnRight}>Turn right</button>
-          <button className="action-button" onClick={findTheSmileyFace}>Exit!</button>
+          <button className="action-button" onClick={findTheSmileyFace}>Find the smiley face!</button>
         </div>
       </header>
       <Room width={500} height={300} gridSize={50} ref={roomRef}/>
