@@ -7,3 +7,9 @@ test('renders Move the robot header', () => {
   const linkElement = screen.getByText(/Move the robot/i);
   expect(linkElement).toBeInTheDocument();
 });
+
+test('render the room SVG', () => {
+  render(<App />);
+  const roomSvg = screen.getByRole('room');
+  expect(roomSvg).toBeInTheDocument();
+});

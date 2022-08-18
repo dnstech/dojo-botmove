@@ -23,16 +23,15 @@ const BLOBSTATIC = BLOBS.map(b => ReactDOMServer.renderToStaticMarkup(b));
 const EXITICON = <g fill="#0f0fae"> <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/> <path d="M4.285 9.567a.5.5 0 0 1 .683.183A3.498 3.498 0 0 0 8 11.5a3.498 3.498 0 0 0 3.032-1.75.5.5 0 1 1 .866.5A4.498 4.498 0 0 1 8 12.5a4.498 4.498 0 0 1-3.898-2.25.5.5 0 0 1 .183-.683zM7 6.5C7 7.328 6.552 8 6 8s-1-.672-1-1.5S5.448 5 6 5s1 .672 1 1.5zm1.757-.437a.5.5 0 0 1 .68.194.934.934 0 0 0 .813.493c.339 0 .645-.19.813-.493a.5.5 0 1 1 .874.486A1.934 1.934 0 0 1 10.25 7.75c-.73 0-1.356-.412-1.687-1.007a.5.5 0 0 1 .194-.68z"/> </g>
 const EXITICONSTATIC = ReactDOMServer.renderToStaticMarkup(EXITICON);
 
-const RADIALGRADIENTDEF = ReactDOMServer.renderToStaticMarkup(
+const DEFS = `
   <radialGradient id="radial">
-    <stop stop-color="#00f" offset="0.1"/>
-    <stop stop-color="rgba(0,0,255, 0.5)" offset="0.8"/>
-  </radialGradient>);
-
-const GLOWFILTER = ReactDOMServer.renderToStaticMarkup(
-  <filter id="sofGlow" width="300%" height="300%" x="-100%" y="-100%">
+    <stop stopColor="#0b0bc9" offset="0.1"/>
+    <stop stopColor="#5353d77f" offset="0.8"/>
+  </radialGradient>
+  <filter id="softGlow" width="300%" height="300%" x="-100%" y="-100%">
     <feGaussianBlur in="thicken" stdDeviation="5" result="blurred" />
-  </filter>);
+  </filter>
+`;
 
 const Room = forwardRef((props: IRoomProps, ref: ForwardedRef<IRoom>) => {
   const width = props.width;
@@ -80,13 +79,12 @@ const Room = forwardRef((props: IRoomProps, ref: ForwardedRef<IRoom>) => {
     drawExitPoint(svg);
     generateRandomObstacles(svg);
     drawRobot(svg);
-    console.log('---initial state', obstacles, simulationBot.state.x, simulationBot.state.y, simulationBot.state.direction);
   };
 
   const initialDraw = (svg: Svg) => {
     //console.log('initial draw', svg);
     svg.viewbox(0, 0, width, height);
-    svg.defs().node.innerHTML = RADIALGRADIENTDEF + GLOWFILTER;
+    svg.defs().node.innerHTML = DEFS;
     const pattern = svg.pattern(gridSize * 2, gridSize * 2, (pat: Pattern) => {
       pat.rect(gridSize * 2, gridSize * 2).fill('#eee');
       pat.rect(gridSize, gridSize).fill('#ddd');
@@ -159,7 +157,7 @@ const Room = forwardRef((props: IRoomProps, ref: ForwardedRef<IRoom>) => {
     simulationState.y = state.y;
     simulationState.direction = state.direction;
 
-    console.log('simulation state', simulationState);
+    // console.log('simulation state', simulationState);
   }
 
   const addMark = (cx: number, cy: number) => {
@@ -169,7 +167,7 @@ const Room = forwardRef((props: IRoomProps, ref: ForwardedRef<IRoom>) => {
     const svg = SVG(svgRef.current);
     svg.circle(gridSize / 5).cx(cx).cy(cy).attr({
       fill: 'url(#radial)',
-      filter: 'url(#sofGlow)'
+      filter: 'url(#softGlow)'
     });
   };
 
@@ -239,7 +237,7 @@ const Room = forwardRef((props: IRoomProps, ref: ForwardedRef<IRoom>) => {
 
   return (
     <div className="room">
-      <svg xmlns="http://www.w3.org/2000/svg" ref={svgRef}>
+      <svg xmlns="http://www.w3.org/2000/svg" ref={svgRef} role="room">
         <Robot {...childProps} ref={robot}/>
       </svg>
     </div>
