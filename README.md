@@ -1,6 +1,14 @@
 # Coding dojo
 
-First challenge: Help the robot!
+First challenge: Help the robot! **You'll need to implement the `Solution.ts`**
+
+If you're already familiar with `npm` and stuffs, happy coding!
+
+# Getting started
+## Install stuffs if you don't have them
+1. [NodeJs](https://nodejs.org/en/download/)
+2. Navigate to the code repository folder, run `npm install`
+
 
 This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
 
