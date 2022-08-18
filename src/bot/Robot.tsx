@@ -110,7 +110,7 @@ const Robot = forwardRef((props: IRobotParent, stateRef: ForwardedRef<IRobotCont
 
     updateBot(initialDirection, initialX, initialY, true);
 
-    testRun();
+    //testRun();
   }
 
   const updateBot = (nextDirection: Direction, nextX: number, nextY: number, initalDraw = false) => {
