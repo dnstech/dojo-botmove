@@ -20,7 +20,7 @@ export interface IRobotControl {
   turnLeft(): void;
   turnRight(): void;
   getInternalState(): IRobotState;
-  processPath(path: string): void;
+  processMoves(moves: string[]): void;
 }
 
 const robotSvg =
@@ -183,7 +183,7 @@ const Robot = forwardRef((props: IRobotParent, stateRef: ForwardedRef<IRobotCont
     props.addMark(cx, cy);
   };
 
-  const processPath = (path: string) => {
+  const processMoves = (moves: string[]) => {
     const state = {
       x: x,
       y: y,
@@ -193,8 +193,8 @@ const Robot = forwardRef((props: IRobotParent, stateRef: ForwardedRef<IRobotCont
     // console.log('process path', state);
 
     stateQueue.splice(0, stateQueue.length);
-    for (let i = 0; i < path.length; i++) {
-      switch (path[i]) {
+    for (let i = 0; i < moves.length; i++) {
+      switch (moves[i]) {
         case 'L':
           state.direction = turnLeftFrom(state.direction);
           break;
@@ -241,8 +241,8 @@ const Robot = forwardRef((props: IRobotParent, stateRef: ForwardedRef<IRobotCont
     move,
     initialDraw,
     getInternalState,
-    processPath
-  }) as IRobotControl);
+    processMoves
+  }));
 
 
   return <svg xmlns="http://www.w3.org/2000/svg" ref={svgRef}/>;

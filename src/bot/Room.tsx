@@ -38,15 +38,18 @@ const Room = forwardRef((props: IRoomProps, ref: ForwardedRef<IRoom>) => {
   const width = props.width;
   const height = props.height;
   const gridSize = props.gridSize;
-  const colCount = width / gridSize;
-  const rowCount = height / gridSize;
+  const colCount = Math.floor(width / gridSize);
+  const rowCount = Math.floor(height / gridSize);
   const iconPercentage = 0.7;
+  const obstacleFillMax = 0.3;
+  const obstacleFillMin = 0.1;
 
   const obstacles: { [id: string]: boolean } = {};
   const exitPoint = new Point();
 
   const svgRef = useRef<SVGSVGElement>(null);
   const robot = useRef<IRobotControl>(null);
+  const lastRecording: string[] = [];
 
   // this is the state which the room will manage
   // it is synced with the internal robot state once on reset only
@@ -66,6 +69,8 @@ const Room = forwardRef((props: IRoomProps, ref: ForwardedRef<IRoom>) => {
     const svg = SVG(svgRef.current)
     // clear the obstacles
     Object.keys(obstacles).forEach(key => delete obstacles[key]);
+    // clear the recording
+    lastRecording.splice(0, lastRecording.length);
     svg.clear();
     draw(svg)
   }
@@ -106,8 +111,8 @@ const Room = forwardRef((props: IRoomProps, ref: ForwardedRef<IRoom>) => {
   }
 
   const generateRandomObstacles = (svg: Svg) => {
-    const max = colCount * rowCount * 0.3;
-    const min = colCount * rowCount * 0.05;
+    const max = colCount * rowCount * obstacleFillMax;
+    const min = colCount * rowCount * obstacleFillMin;
     const count = Math.floor(Math.random() * (max - min) + min);
     let i = 0;
     let tryCount = 0;
@@ -176,8 +181,8 @@ const Room = forwardRef((props: IRoomProps, ref: ForwardedRef<IRoom>) => {
     return !obstacles[`${x}_${y}`];
   };
 
-  const processPath = (path: string) => {
-    robot.current?.processPath(path);
+  const replay = () => {
+    robot.current?.processMoves(lastRecording);
   }
 
   // this is a simulation without animation :(
@@ -185,12 +190,14 @@ const Room = forwardRef((props: IRoomProps, ref: ForwardedRef<IRoom>) => {
   const simulationBot: IRobot = {
     turnLeft: (animate: boolean = false) => {
       simulationState.direction = turnLeftFrom(simulationState.direction as Direction);
+      lastRecording.push('L');
       if (animate) {
         robot.current?.turnLeft();
       }
     },
     turnRight: (animate: boolean = false) => {
       simulationState.direction = turnRightFrom(simulationState.direction as Direction);
+      lastRecording.push('R');
       if (animate) {
         robot.current?.turnRight();
       }
@@ -198,6 +205,7 @@ const Room = forwardRef((props: IRoomProps, ref: ForwardedRef<IRoom>) => {
     move: (animate: boolean = false) => {
       const [nextX, nextY] = moveFrom(simulationState.x, simulationState.y, simulationState.direction as Direction);
       if (isMovable(nextX, nextY)) {
+        lastRecording.push('M');
         if (animate) {
           robot.current?.move();
         }
@@ -226,7 +234,7 @@ const Room = forwardRef((props: IRoomProps, ref: ForwardedRef<IRoom>) => {
     colCount,
     exitPoint,
     reset,
-    processPath
+    replay
   }));
 
   return (

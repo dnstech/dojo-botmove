@@ -22,7 +22,7 @@ export interface IRoom {
   robot: IRobot;
 
   reset();
-  processPath(path: string);
+  replay();
 }
 
 export interface IRoomProps {
