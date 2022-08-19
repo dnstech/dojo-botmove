@@ -181,6 +181,7 @@ const Room = forwardRef((props: IRoomProps, ref: ForwardedRef<IRoom>) => {
 
   const replay = () => {
     robot.current?.processMoves(lastRecording);
+    lastRecording.splice(0, lastRecording.length);
   }
 
   // this is a simulation without animation :(
@@ -188,24 +189,27 @@ const Room = forwardRef((props: IRoomProps, ref: ForwardedRef<IRoom>) => {
   const simulationBot: IRobot = {
     turnLeft: (animate: boolean = false) => {
       simulationState.direction = turnLeftFrom(simulationState.direction as Direction);
-      lastRecording.push('L');
       if (animate) {
         robot.current?.turnLeft();
+      } else {
+        lastRecording.push('L');
       }
     },
     turnRight: (animate: boolean = false) => {
       simulationState.direction = turnRightFrom(simulationState.direction as Direction);
-      lastRecording.push('R');
       if (animate) {
         robot.current?.turnRight();
+      } else {
+        lastRecording.push('R');
       }
     },
     move: (animate: boolean = false) => {
       const [nextX, nextY] = moveFrom(simulationState.x, simulationState.y, simulationState.direction as Direction);
       if (isMovable(nextX, nextY)) {
-        lastRecording.push('M');
         if (animate) {
           robot.current?.move();
+        } else {
+          lastRecording.push('M');
         }
         simulationState.x = nextX;
         simulationState.y = nextY;

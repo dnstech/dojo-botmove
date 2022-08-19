@@ -1,20 +1,8 @@
 import { IRoom, IRobot } from "./bot/bot";
 
-export const getMeToTheSmileyFace = (room: IRoom, robot: IRobot) => {
-  // your implementation here
-  const visited: boolean[][] = [];
-  for (let i = 0; i < room.colCount; i++) {
-    const col = [];
-    for (let j = 0; j < room.rowCount; j++) {
-      col.push(false);
-    }
-    visited.push(col);
-  }
-
-  dfs(robot, visited, room, 0);
-};
-
+// intermediate challenge
 export const keyHandler = (key: string, robot: IRobot) => {
+  // your implementation here
   let direction = '';
   switch (key) {
     case 'ArrowUp':
@@ -44,6 +32,22 @@ export const keyHandler = (key: string, robot: IRobot) => {
   }
 
   return true;
+};
+
+// advanced challenge
+export const getMeToTheSmileyFace = (room: IRoom, robot: IRobot) => {
+  // your implementation here
+
+  const visited: boolean[][] = [];
+  for (let i = 0; i < room.colCount; i++) {
+    const col = [];
+    for (let j = 0; j < room.rowCount; j++) {
+      col.push(false);
+    }
+    visited.push(col);
+  }
+
+  dfs(robot, visited, room, 0);
 };
 
 const leftTurns = ['NE', 'ES', 'WN', 'SW'];
