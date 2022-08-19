@@ -1,12 +1,27 @@
-import React, { useRef } from "react";
+import React, { useEffect, useRef } from "react";
 import "./App.scss";
 import Room from "./bot/Room";
 import { IRoom } from './bot/bot.d';
-import { getMeToTheSmileyFace } from "./Solution";
+import { getMeToTheSmileyFace, keyHandler } from "./Solution";
 
 function App() {
 
   const roomRef = useRef<IRoom>(null);
+
+  useEffect(() => {
+    window.addEventListener('keyup', keyUpHandler);
+    return () => {
+      window.removeEventListener('keyup', keyUpHandler);
+    };
+  });
+
+  const keyUpHandler = (e: KeyboardEvent) => {
+    if (!roomRef.current) {
+      return;
+    }
+
+    keyHandler(e.key, roomRef.current.robot);
+  };
 
   const findTheSmileyFace = () => {
     if (!roomRef.current) {
