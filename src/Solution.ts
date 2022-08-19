@@ -14,6 +14,40 @@ export const getMeToTheSmileyFace = (room: IRoom, robot: IRobot) => {
   dfs(robot, visited, room, 0);
 };
 
+export const keyHandler = (key: string, robot: IRobot) => {
+  let direction = '';
+  switch (key) {
+    case 'ArrowUp':
+      direction = 'N';
+      break;
+    case 'ArrowLeft':
+      direction = 'W';
+      break;
+    case 'ArrowDown':
+      direction = 'S';
+      break;
+    case 'ArrowRight':
+      direction = 'E';
+      break;
+  }
+
+  if (!direction) {
+    return false;
+  }
+
+  if (robot.state.direction === direction) {
+    robot.move(true);
+  } else if (leftTurns.indexOf(`${direction}${robot.state.direction}`) >= 0) {
+    robot.turnLeft(true);
+  } else {
+    robot.turnRight(true);
+  }
+
+  return true;
+};
+
+const leftTurns = ['NE', 'ES', 'WN', 'SW'];
+
 const delta: { [id: string]: number[] } = {
   N: [0, -1],
   E: [1, 0],
