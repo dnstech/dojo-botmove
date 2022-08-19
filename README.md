@@ -4,6 +4,8 @@ First challenge: Help the robot! **You'll need to implement the `Solution.ts`**
 
 If you're already familiar with `npm` and stuffs, happy coding!
 
+Supported languages: Typescripts (tsx, ts), Javascript (jsx, js), Stylesheet (scss, css)
+
 # Getting started
 ## Install stuffs if you don't have them
 1. [NodeJs](https://nodejs.org/en/download/)
