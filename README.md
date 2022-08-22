@@ -1,6 +1,6 @@
 # Coding dojo
 
-First challenge: Help the robot! **You'll need to implement the `Solution.ts`**
+Please have a look at `CHALLENGES.md` :)
 
 If you're already familiar with `npm` and stuffs, happy coding!
 
