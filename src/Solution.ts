@@ -41,8 +41,34 @@ function getAngle (direction: Direction) {
   }
 }
 
+class Decision {
+  constructor(public x: number, public y: number, public leftCount: number) {
+  }
+
+  // There's no native dictionary/set library that allows comparing real objects
+  // as far as I'm aware so we have to convert to strings.
+  toString() {
+    return `${this.x},${this.y},${this.leftCount}`;
+  }
+}
+
 // advanced challenge
 export const getMeToTheSmileyFace = (room: IRoom, robot: IRobot) => {
-  // your implementation here
-  alert('Please implement Solution.ts');
+  // Keep trying different amounts of left turns from every position until we
+  // reach our destination, We'll either find the solution, or run out of ram
+  // memory.
+  let visited = new Set<string>();
+  while (robot.state.x !== room.exitPoint.x || robot.state.y !== room.exitPoint.y) {
+    let current = new Decision(robot.state.x, robot.state.y, 0);
+    while (visited.has(current.toString())) {
+      current = new Decision(robot.state.x, robot.state.y, current.leftCount + 1);
+    }
+
+    visited.add(current.toString());
+    for (let i = 0; i < current.leftCount; i++) {
+      robot.turnLeft(false);
+    }
+
+    robot.move(false);
+  }
 };
