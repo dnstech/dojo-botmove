@@ -48,7 +48,7 @@ export const getMeToTheSmileyFace = (room: IRoom, robot: IRobot) => {
     visited.push(col);
   }
 
-  depthFirstSearch(robot, visited, room);
+  depthFirstSearch(robot, visited, room, 0);
 };
 
 const delta: { [id: string]: number[] } = {
@@ -58,7 +58,7 @@ const delta: { [id: string]: number[] } = {
   W: [-1, 0],
 };
 
-function depthFirstSearch(robot: IRobot, visited: boolean[][], room: IRoom): boolean {
+function depthFirstSearch(robot: IRobot, visited: boolean[][], room: IRoom, depth: number): boolean {
   if (robot.state.x === room.exitPoint.x && robot.state.y === room.exitPoint.y) {
     return true;
   }
@@ -71,7 +71,7 @@ function depthFirstSearch(robot: IRobot, visited: boolean[][], room: IRoom): boo
     // log(depth, 'next: ' + nextX + ', ' + nextY);
     if (isInBound(nextX, nextY, room) && !visited[nextX][nextY] && robot.move()) {
       // log(depth, '  - moved, direction ' + robot.state.direction);
-      if (depthFirstSearch(robot, visited, room)) {
+      if (depthFirstSearch(robot, visited, room, depth + 1)) {
         //short circuit
         return true;
       }
