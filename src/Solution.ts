@@ -48,7 +48,7 @@ export const getMeToTheSmileyFace = (room: IRoom, robot: IRobot) => {
     visited.push(col);
   }
 
-  dfs(robot, visited, room, 0);
+  depthFirstSearch(robot, visited, room);
 };
 
 const delta: { [id: string]: number[] } = {
@@ -58,11 +58,8 @@ const delta: { [id: string]: number[] } = {
   W: [-1, 0],
 };
 
-function dfs(robot: IRobot, visited: boolean[][], room: IRoom, depth: number): boolean {
-  if (
-    robot.state.x === room.exitPoint.x &&
-    robot.state.y === room.exitPoint.y
-  ) {
+function depthFirstSearch(robot: IRobot, visited: boolean[][], room: IRoom): boolean {
+  if (robot.state.x === room.exitPoint.x && robot.state.y === room.exitPoint.y) {
     return true;
   }
 
@@ -72,19 +69,15 @@ function dfs(robot: IRobot, visited: boolean[][], room: IRoom, depth: number): b
     const nextY = robot.state.y + delta[robot.state.direction][1];
     // log(depth, 'direction ' + robot.state.direction);
     // log(depth, 'next: ' + nextX + ', ' + nextY);
-    if (
-      isInBound(nextX, nextY, room) &&
-      !visited[nextX][nextY] &&
-      robot.move()
-    ) {
+    if (isInBound(nextX, nextY, room) && !visited[nextX][nextY] && robot.move()) {
       // log(depth, '  - moved, direction ' + robot.state.direction);
-      if (dfs(robot, visited, room, depth + 1)) {
+      if (depthFirstSearch(robot, visited, room)) {
         //short circuit
         return true;
       }
 
-      robot.turnLeft();
-      robot.turnLeft();
+      robot.turnRight();
+      robot.turnRight();
       robot.move();
       robot.turnRight();
       robot.turnRight();
