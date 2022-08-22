@@ -1,6 +1,7 @@
 import { IRoom, IRobot } from "./bot/bot";
 
 // intermediate challenge
+const leftTurns = ['NE', 'ES', 'WN', 'SW'];
 export const keyHandler = (key: string, robot: IRobot) => {
   // your implementation here
   let direction = '';
@@ -49,8 +50,6 @@ export const getMeToTheSmileyFace = (room: IRoom, robot: IRobot) => {
 
   dfs(robot, visited, room, 0);
 };
-
-const leftTurns = ['NE', 'ES', 'WN', 'SW'];
 
 const delta: { [id: string]: number[] } = {
   N: [0, -1],
