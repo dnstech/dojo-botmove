@@ -4,6 +4,11 @@ Please have a look at `CHALLENGES.md` :)
 
 If you're already familiar with `npm` and stuffs, happy coding!
 
+Some additional information:
+1. The `turnLeft`, `turnRight`, and `move` function of the bot will accept a `boolean` value, whether or not to animate the bot immediately. If you pass `true`, you would need to wait 200ms before calling the next action, otherwise, just implement `getMeToTheSmileyFace` without passing any argument to the methods and the animation will kick in after that function completes.
+2. `move` will move the robot and return `true` if the robot can move, otherwise it will return `false` without changing anything
+3. The smiley face's location is denote by `exitPoint` of the `IRoom` you have
+
 Supported languages: Typescripts (tsx, ts), Javascript (jsx, js), Stylesheet (scss, css)
 
 # Getting started
